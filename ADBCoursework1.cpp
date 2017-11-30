@@ -16,8 +16,11 @@ using std::to_string;
 std::vector<std::string> findHours(odb::database& db, std::string username) {
 	std::vector<std::string> result;
 	transaction t(db.begin());
-	// Your implementation goes here:
-	// Find the hours
+	for(auto& it : db.query<Review>(query<Review>::user_id->name == username)) {
+		for(auto& h : it.business_id->hours) {
+			result.push_back(h->hours);
+		}
+	}
 	t.commit();
 	return result;
 }
@@ -26,22 +29,31 @@ std::vector<StarCount> countStars(odb::database& db, float latMin, float latMax,
 																	float longMax) {
 	std::vector<StarCount> result;
 	transaction t(db.begin());
-	// Your implementation goes here:
-	// db.query<StarCount>("select ...")
-	// Count the stars
+	for(auto& it : db.query<StarCount>("select review.stars, count(*) from review, business where "
+																		 "review.business_id = business.id and latitude between " +
+																		 to_string(latMin) + " and " + to_string(latMax) +
+																		 " and longitude between " + to_string(longMin) + " and " +
+																		 to_string(longMax) + " group by review.stars")) {
+		result.push_back(it);
+	}
 	t.commit();
 	return result;
 }
 
-void createIndex(odb::database& db){
+void createIndex(odb::database& db) {
 	// Your implementation goes here:
-	// don't forget to wrap it in a transaction
+	transaction t(db.begin());
+	db.execute("create columnstore index csi on review (business_id, stars);");
+	t.commit();
+
 	// create a columnstore index to accelerate your query
 }
 
-void dropIndex(odb::database& db){
+void dropIndex(odb::database& db) {
 	// Your implementation goes here:
-	// don't forget to wrap it in a transaction
+	transaction t(db.begin());
+	db.execute("drop index csi on review;");
+	t.commit();
 	// drop the columnstore index you've created
 }
 
@@ -101,7 +113,7 @@ bool operator==(StarCount const& left, StarCount const& right) {
 int main(int argc, char** argv) {
 
 	using namespace std;
-	database db("SA", "AdvancedDB17", "yelp", "localhost");
+	database db("SA", "AdvancedDB17", "yelp", "146.169.45.80");
 
 	{ // testing find Hours
 		auto hours = findHours(db, "kn");
@@ -130,7 +142,7 @@ int main(int argc, char** argv) {
 	}
 
 	{ // performance runs
-		
+
 		// warmup run
 		countStars(db, 30.0, 45.7, -100.0, -1.0);
 		for(size_t i = 0; i < 5; i++) {
@@ -145,8 +157,8 @@ int main(int argc, char** argv) {
 		countStars(db, 30.0, 45.7, -100.0, -1.0);
 		for(size_t i = 0; i < 5; i++) {
 			countStars(db, 30.0, 45.7, -100.0, -1.0);
-			cout << " Run number " << i << " time after indexing: " << getLastQueryRuntime(db).elapsed_time
-					 << endl;
+			cout << " Run number " << i
+					 << " time after indexing: " << getLastQueryRuntime(db).elapsed_time << endl;
 		}
 		cout << endl;
 
