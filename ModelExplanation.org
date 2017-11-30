@@ -1,0 +1,17 @@
+Column-Store indices is the term Microsoft uses for data that is
+stored in decomposed format, meaning that data is stored such that all
+attributes of a column are co-located. Since this query only touches
+few columns but many tuples/rows (both in the review as well as the
+business tables), data access locality is improved
+significantly. Specifically, only two of the nine columns in review
+and three of the twelve columns in business need to be read which
+leads to significantly fewer page faults (i.e., better I/O
+behaviour).
+
+Bonus points: In addition to accessing fewer columns, SQL server
+compresses data that is stored in decomposed form. This further
+reduces the number of data access page faults.
+
+Another bonus point: Since fewer columns are read, intermediate data
+structures like the hash-table for the join are more likely to stay
+cache resident which speeds up the join.
